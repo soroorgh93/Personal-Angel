@@ -1,0 +1,14 @@
+# Deterministic profile: no model downloads, no GPU. Used by tests and by the
+# UI rehearsal mode. Every backend replays annotations from a sidecar
+# <media>.fixture.json or synthesizes them from simple image statistics.
+_extends: base.yaml
+project:
+  mode: fixture
+detector: {backend: fixture}
+pose: {backend: fixture}
+audio: {backend: fixture, threat_classifier: fixture, acoustic_backend: fixture}
+llm: {backend: fixture}
+# separate DB so rehearsal/test episodes never leak into real investigations
+memory: {embedding_backend: hashing, path: runs/memory/fixture_memory.sqlite}
+scene: {backend: fixture}
+agent: {planner: heuristic}

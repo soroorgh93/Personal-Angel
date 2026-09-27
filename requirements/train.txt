@@ -1,0 +1,4 @@
+datasets[audio]>=3.2,<5
+kokoro>=0.9.2
+scikit-learn>=1.5,<2
+onnx>=1.16

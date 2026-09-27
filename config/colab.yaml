@@ -1,0 +1,8 @@
+# Google Colab GPU functional test. LLM served by Ollama inside the runtime (same API as vLLM).
+_extends: pc_gpu.yaml
+project:
+  mode: colab
+llm:
+  base_url: http://127.0.0.1:11434/v1
+  model: qwen3.5:9b
+  native_tools: false

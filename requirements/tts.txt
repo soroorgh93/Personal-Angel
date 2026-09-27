@@ -1,0 +1,6 @@
+# Demo-media generation only (never used by the app at run time).
+# edge-tts: multilingual voices for the voicemail demo clips (needs internet while generating).
+edge-tts>=6.1
+# kokoro: offline alternative (Python <= 3.12 only)
+kokoro>=0.9.2; python_version < "3.13"
+soundfile>=0.12

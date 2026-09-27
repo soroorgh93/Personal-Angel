@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PersonalAngel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 4 7v8c0 8 5.5 13.5 12 15 6.5-1.5 12-7 12-15V7z' fill='%234f8cff'/%3E%3Ccircle cx='16' cy='15' r='5' fill='%230b1020'/%3E%3Ccircle cx='16' cy='15' r='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/ui/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><path d="M16 2 4 7v8c0 8 5.5 13.5 12 15 6.5-1.5 12-7 12-15V7z" fill="#4f8cff"/><circle cx="16" cy="15" r="5" fill="#0b1020"/><circle cx="16" cy="15" r="2" fill="#fff"/></svg>
+    <div>
+      <div class="name">PersonalAngel</div>
+      <div class="tag">On-device multimodal safety investigator · sees, listens, reasons, acts</div>
+    </div>
+  </div>
+  <div class="pills">
+    <span class="pill" id="pill-local" title="All perception and reasoning models run on this machine. No data leaves the device.">● local models · no cloud</span>
+    <span class="pill" id="pill-net">internet: checking…</span>
+    <span class="pill" id="pill-llm">model: …</span>
+    <span class="pill" id="pill-profile">profile</span>
+    <span class="pill" id="pill-warm" title="Perception models (YOLO, pose, CLIP, whisper, CLAP, text-risk) are loaded once at start and stay resident in memory.">models: …</span>
+    <span class="pill warn" id="pill-sim" title="Safe mode: every decision, payload and evidence bundle is real, but the 911 / police / security dispatch is written to the audit log instead of being placed. In production the same dispatcher plugs into a PSAP / security-desk API.">safe mode · dispatch not live</span>
+    <button class="ghost" id="open-library">Example recordings</button>
+  </div>
+</header>
+
+<main class="grid">
+  <!-- ------------------------------------------------ INPUT -->
+  <section class="col input">
+    <h2>1 · Recording</h2>
+    <div id="drop" class="drop">
+      <input id="file" type="file" accept="video/*,audio/*,image/*" hidden>
+      <div class="drop-icon">⬆</div>
+      <div id="drop-text">Drop any video, audio or image here<br><span class="muted">room camera · vehicle cabin · nursery · voicemail · phone clip</span></div>
+    </div>
+    <div class="live" id="live">
+      <div class="live-head"><span class="lbl">Live · this computer's camera and microphone</span><span class="muted small" id="live-support"></span></div>
+      <video id="live-preview" class="live-preview" autoplay muted playsinline hidden></video>
+      <div class="row live-row">
+        <select id="live-secs" title="How many seconds to record before the investigation starts">
+          <option value="10">10 s</option><option value="15" selected>15 s</option><option value="20">20 s</option><option value="30">30 s</option>
+        </select>
+        <button id="live-video" class="ghost">● Camera + mic</button>
+        <button id="live-audio" class="ghost">● Mic only</button>
+        <button id="live-stop" class="ghost stop" hidden>■ Stop now</button>
+      </div>
+      <label class="small live-watch"><input type="checkbox" id="live-watch"> keep watching: record the next window after each verdict</label>
+      <div id="live-status" class="muted small">Records a short window here in the browser, sends it to the device and investigates it like any recording. Nothing leaves the device.</div>
+    </div>
+    <label class="lbl" for="question">What should I check?</label>
+    <textarea id="question" rows="3">Investigate this recording for safety incidents and decide what to do.</textarea>
+    <label class="lbl" for="context">Context for the operator note <span class="muted">(optional — the scene itself is inferred from the pixels)</span></label>
+    <input id="context" type="text" placeholder="e.g. rear-seat camera of a robotaxi; passenger boarded alone">
+    <div class="depth" title="Fast: the policy planner drives and the local model is called 3 times (vision check, critic, report). Deep: the model plans every step itself and its thinking is streamed (about 10 calls).">
+      <span class="lbl">Reasoning</span>
+      <label><input type="radio" name="depth" value="fast" checked> Fast · 3 model calls</label>
+      <label><input type="radio" name="depth" value="deep"> Deep · model plans every step</label>
+    </div>
+    <button id="analyze" class="primary">Investigate</button>
+    <div id="ingest" class="muted small"></div>
+
+    <h2 class="later">Recent investigations</h2>
+    <ul id="runs" class="runs"></ul>
+  </section>
+
+  <!-- ------------------------------------------------ PERCEPTION -->
+  <section class="col perception">
+    <h2>2 · Perception &amp; evidence</h2>
+    <div class="card media-card">
+      <div class="media-tabs" id="media-tabs"><button class="tab active" data-src="original">Original</button></div>
+      <div id="player" class="player"><div class="placeholder">No recording loaded</div></div>
+      <div id="timeline" class="timeline"><div id="tl-cursor" class="tl-cursor"></div></div>
+      <div id="legend" class="legend"></div>
+    </div>
+
+    <div class="card" id="scene-card">
+      <div class="card-head"><span>Scene understanding</span><span class="muted small" id="scene-backend"></span></div>
+      <div id="scene-body" class="scene"><span class="muted">Environment, people and objects are inferred from the frames when the investigation starts.</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span>Structured events</span><span class="muted small" id="backends"></span></div>
+      <div id="events" class="events"><span class="muted">—</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span>Evidence frames</span><span class="muted small">detector boxes · red = weapon candidate · ranked by PageRank</span></div>
+      <div id="gallery" class="gallery"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span>Speech &amp; sound</span><span class="muted small" id="audio-backend"></span></div>
+      <div id="transcript" class="transcript"><span class="muted">—</span></div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ REASONING -->
+  <section class="col reasoning">
+    <h2>3 · Agent reasoning</h2>
+    <div class="stages" id="stages">
+      <span>ingest</span><span>scene</span><span>scan</span><span>windows</span><span>events</span><span>investigate</span><span>verdict</span>
+    </div>
+
+    <div class="card hyp">
+      <div class="card-head"><span>Working hypothesis</span><span id="critic-badge" class="badge">critic: not run</span></div>
+      <div id="hyp-text" class="hyp-text">Waiting for a recording…</div>
+      <div class="meter"><div id="meter-fill" class="meter-fill"></div></div>
+      <div class="meter-row"><span id="meter-label">belief —</span><span id="budget" class="muted small"></span></div>
+    </div>
+
+    <div id="final-card" class="card verdict" hidden>
+      <div class="verdict-head"><span id="verdict-level" class="level">—</span><span id="verdict-headline" class="headline"></span></div>
+      <div id="final-text" class="final-text"></div>
+      <div id="final-unc" class="muted small"></div>
+      <div id="decisions" class="decisions"></div>
+      <div class="chat">
+        <div class="row"><input id="chat-q" type="text" placeholder="Ask a follow-up about this investigation…"><button id="chat-send">Ask</button></div>
+        <div id="chat-a" class="chat-a"></div>
+      </div>
+    </div>
+    <div class="card trace-card">
+      <div class="card-head"><span>Live trace · thought → action → observation</span>
+        <label class="small"><input type="checkbox" id="show-think" checked> show model thinking</label></div>
+      <div id="trace" class="trace"></div>
+    </div>
+
+    <div id="question-card" class="card question" hidden>
+      <div class="card-head"><span>The agent is asking the person</span><span id="countdown" class="small"></span></div>
+      <div id="q-text" class="q-text"></div>
+      <div id="q-meta" class="muted small"></div>
+      <div id="quick-answers" class="chips"></div>
+      <div class="row"><input id="answer" type="text" placeholder="type what the person says (or stay silent)"><button id="answer-send">Send</button></div>
+    </div>
+
+  </section>
+</main>
+
+<footer class="metrics-wrap">
+  <div class="metrics-head"><span>Run cost &amp; efficiency</span><button class="ghost small" id="metrics-help">What do these numbers mean?</button></div>
+  <div class="metrics" id="metrics">
+    <div title="How long the whole investigation took, from upload to verdict."><span>wall time</span><b id="t-wall">—</b></div>
+    <div title="How many times the local language/vision model was asked something (each call costs time on a CPU)."><span>model calls</span><b id="t-calls">—</b></div>
+    <div title="Text the model read (in) and wrote (out), in tokens — roughly words. This is what a cloud API would bill."><span>tokens in / out</span><b id="t-tokens">—</b></div>
+    <div title="Tokens written per second of total model time — the time also includes reading the prompt and the images, so it is lower than the raw generation speed."><span>tokens / s</span><b id="t-tps">—</b></div>
+    <div title="Video frames the detectors actually looked at, out of all frames in the file."><span>frames processed / total</span><b id="t-frames">—</b></div>
+    <div title="Frames the system decided it did not need to look at (nothing was moving / no candidate window). Higher = more efficient."><span>frames skipped</span><b id="t-skip">—</b></div>
+    <div title="GPU busy % and memory used, when a GPU is present (not sampled on a CPU-only PC)."><span>GPU util / mem</span><b id="t-gpu">—</b></div>
+    <div title="How many tools the agent used (frame inspection, audio, policy, memory, VLM...) and how many times the adversarial critic reviewed the hypothesis."><span>tool calls · critic</span><b id="t-tools">—</b></div>
+    <div title="What the same tokens and video minutes would have cost on a cloud AI API. Everything here ran locally, so this was not spent."><span>cloud API would have billed</span><b id="t-cloud">—</b></div>
+    <div title="Estimated electricity used by this machine for the run."><span>what it cost here (electricity)</span><b id="t-local">—</b></div>
+    <div title="For each computation: did it run locally or would it have been allowed to go to the cloud? Local-only mode keeps video, audio, transcripts and location on the device."><span>edge / cloud placement</span><b id="t-edge">—</b></div>
+    <div title="Tool permission checks performed, and how many pieces of untrusted text (transcripts, documents) looked like injected instructions."><span>security</span><b id="t-sec">—</b></div>
+  </div>
+  <div id="metrics-explain" class="metrics-explain" hidden>
+    <b>In plain words:</b> <i>wall time</i> is how long the run took. <i>Model calls</i> and <i>tokens</i> show how much the local AI model was used
+    (tokens ≈ words read/written; a GPU profile reasons in more steps and sends more frames, so it reads more) — a cloud service would
+    bill exactly this, which is <i>cloud API would have billed</i>; here it cost only the <i>electricity</i> shown next to it. <i>Frames processed / skipped</i> show that the system looks closely only where something happens and safely skips the rest.
+    <i>Tool calls · critic</i> count the investigation steps and how often the adversarial critic double-checked the conclusion.
+    <i>Edge / cloud placement</i> lists every computation and confirms it stayed on this device. <i>Security</i> counts permission checks and
+    prompt-injection flags on untrusted text such as transcripts.
+  </div>
+</footer>
+
+<div id="library" class="modal" hidden>
+  <div class="modal-box">
+    <div class="card-head"><span>Example recordings</span><button class="ghost" id="close-library">close</button></div>
+    <p class="muted small">Public clips fetched by <code>scripts/fetch_real_demo_clips.py</code> (with source and license), plus synthetic rehearsal clips. The investigator is not limited to these: drop any recording.</p>
+    <div id="library-items" class="library"></div>
+  </div>
+</div>
+
+<script src="/ui/app.js"></script>
+</body>
+</html>

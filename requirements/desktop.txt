@@ -1,0 +1,3 @@
+# Native window for desktop mode (Edge WebView2 on Windows, WebKitGTK on Linux).
+# If this package cannot be installed the app falls back to a chromeless Chrome/Edge window.
+pywebview>=5.0

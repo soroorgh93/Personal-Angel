@@ -1,0 +1,22 @@
+# Windows/Linux PC without a usable GPU: real CV/ASR models on CPU, LLM via Ollama.
+_extends: base.yaml
+project:
+  mode: pc_cpu
+video: {scan_fps: 1.0, dense_fps: 4.0, max_scan_frames: 400}
+# yolo11s (not n): far-away CCTV figures need the bigger model; the frame budget is small so CPU copes
+detector: {backend: ultralytics, device: cpu, imgsz: 640, model: yolo11s.pt, conf: 0.25}
+pose: {backend: ultralytics, device: cpu, model: yolo11s-pose.pt}
+audio: {backend: faster_whisper, asr_model: small, compute_type: int8, device: cpu,
+        threat_classifier: detoxify_multilingual, acoustic_backend: clap}
+scene: {backend: clip, device: cpu}
+llm:
+  backend: openai_compatible
+  base_url: http://127.0.0.1:11434/v1
+  model: qwen3.5:4b
+  max_images_per_call: 3
+  max_tokens: 700
+  timeout_s: 300
+# CPU boxes: the deterministic planner drives the loop; the model is used where it matters
+# (VLM verification, critic, closing report) so a run takes ~2-3 min instead of 12.
+agent: {planner: hybrid, max_steps: 12}
+memory: {embedding_backend: hashing}

@@ -1,0 +1,11 @@
+# PC with an NVIDIA GPU (>= 8 GB): same stack, GPU device, bigger Ollama model.
+_extends: pc_cpu.yaml
+project:
+  mode: pc_gpu
+video: {scan_fps: 2.0, dense_fps: 8.0, max_scan_frames: 900}
+detector: {device: 0, imgsz: 640, model: yolo11m.pt, conf: 0.25}
+pose: {device: 0, model: yolo11m-pose.pt}
+audio: {asr_model: medium, compute_type: float16, device: cuda}
+scene: {backend: clip, device: auto}
+llm: {model: qwen3.5:9b, max_images_per_call: 6, max_tokens: 1200}
+agent: {planner: llm, max_steps: 12}

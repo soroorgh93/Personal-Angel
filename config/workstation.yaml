@@ -1,0 +1,31 @@
+# Unified memory GPU workstation profile (128 GB). The vision language model is served by vLLM;
+# perception runs in the app process on the same GPU.
+_extends: base.yaml
+project:
+  mode: workstation
+video: {scan_fps: 3.0, dense_fps: 10.0, max_scan_frames: 1800, max_windows: 5}
+detector: {backend: ultralytics, device: 0, imgsz: 800, model: yolo11m.pt, conf: 0.25}
+pose: {backend: ultralytics, device: 0, model: yolo11m-pose.pt}
+# faster-whisper runs on CTranslate2; the aarch64 wheel has no CUDA, so the app falls back to CPU int8 with
+# `cpu_fallback_model` automatically (large-v3 on the 20 ARM cores is too slow for a live demo).
+audio: {backend: faster_whisper, asr_model: large-v3, compute_type: float16, device: cuda, cpu_fallback_model: medium,
+        threat_classifier: detoxify_multilingual, acoustic_backend: clap}
+scene: {backend: clip, device: auto}
+triage: {enabled: false, backend: qdirp}
+llm:
+  backend: openai_compatible
+  base_url: http://127.0.0.1:8000/v1
+  model: Qwen/Qwen2.5-VL-7B-Instruct
+  native_tools: false
+  thinking: false
+  thinking_control: chat_template_kwargs   # vLLM
+  show_thinking: true
+  max_images_per_call: 8
+  max_tokens: 1400
+  timeout_s: 240
+# Embeddings: the chat server serves one model; start a second vLLM `--runner pooling` instance for
+# Qwen/Qwen3-Embedding-0.6B and switch to openai_compatible, otherwise the offline hashing encoder is used.
+memory: {embedding_backend: hashing, embedding_model: Qwen/Qwen3-Embedding-0.6B}
+# planner: hybrid = 'Fast' in the UI (policy planner drives; the model is called 3x: vision check, critic, report).
+# The UI's 'Deep' switch runs the llm planner (model plans every step, thinking streamed) for the show-off moment.
+agent: {planner: hybrid, compute_budget: 160, max_steps: 10}

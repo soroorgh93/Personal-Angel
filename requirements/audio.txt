@@ -1,0 +1,6 @@
+faster-whisper>=1.1,<2
+soundfile>=0.12
+scipy>=1.11
+transformers>=4.49,<6
+detoxify>=0.5.2
+librosa>=0.10

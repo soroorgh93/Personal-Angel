@@ -1,0 +1,159 @@
+# Base profile: every other profile extends this one.
+project:
+  name: PersonalAngel
+  mode: base
+
+video:
+  scan_fps: 2.0            # stage-1 cheap sampling rate
+  dense_fps: 8.0           # stage-2 rate inside candidate windows
+  max_scan_frames: 900     # cap for long videos (auto-stride)
+  evidence_max_side: 960   # evidence JPEG max side length
+  window_pad_s: 2.0
+  max_windows: 4
+  annotated_clips: true    # write an annotated (boxes + skeleton) replay MP4 per candidate window
+  clip_max_side: 720
+
+detector:
+  backend: fixture         # fixture | ultralytics
+  model: yolo11n.pt
+  weapon_model: models/gun-knife-yolo11n.pt   # cosgun99/gun-knife-yolo11n (MIT)
+  fallen_model: models/human-fall-detection-yolo11.pt  # melihuzunoglu (Fallen/Sitting/Standing)
+  device: auto
+  conf: 0.35
+  weapon_conf: 0.45
+  imgsz: 640
+  tracker: bytetrack.yaml
+  classes_of_interest: [person, knife, scissors, baseball bat, cell phone, backpack, handbag, laptop, bottle]
+
+pose:
+  backend: fixture         # fixture | ultralytics
+  model: yolo11n-pose.pt
+  device: auto
+  fall:
+    temporal_checkpoint: null      # e.g. models/fall_tcn.ts from scripts/train_fall_tcn.py (rule ⊕ learned)
+    torso_angle_lying_deg: 60
+    aspect_ratio_lying: 1.1
+    drop_velocity_h_per_s: 0.6
+    on_ground_dwell_s: 2.0
+    stumble_recover_s: 2.0
+  slump:
+    baseline_s: 3.0
+    head_drop_ratio: 0.15
+    lateral_lean_ratio: 0.45
+    stillness_s: 6.0
+    stillness_disp_ratio: 0.02
+
+audio:
+  backend: fixture         # fixture | faster_whisper
+  asr_model: small         # tiny|base|small|medium|large-v3
+  compute_type: int8
+  device: auto
+  translate: true
+  threat_classifier: detoxify_multilingual   # detoxify_multilingual | insikt_es | none | fixture
+  acoustic_backend: fixture # fixture | clap | none
+  acoustic_labels: [scream, gunshot, baby crying, glass breaking, moaning in pain, crying, shouting, angry argument, speech, music, singing, silence]
+
+scene:
+  backend: fixture         # fixture | clip | none  — infers environment, age groups, weapon second opinion
+  model: openai/clip-vit-base-patch32
+  device: auto
+
+triage:
+  enabled: false           # stage-1 cheap frame classifier (QDiRP-CompassNet20 or MobileNetV3)
+  backend: fixture         # fixture | qdirp | mobilenet
+  checkpoint: models/triage_qdirp.pt
+  labels: [normal, person_down, weapon_visible, distress]
+
+llm:
+  backend: fixture         # fixture | openai_compatible
+  base_url: http://127.0.0.1:11434/v1
+  api_key: none
+  model: qwen3.5:9b
+  vision_model: null       # null = same model handles images
+  temperature: 0.2
+  max_tokens: 1200
+  timeout_s: 180
+  native_tools: false      # true = OpenAI tool-calling; false = JSON ReAct protocol (most portable)
+  show_thinking: true      # stream model reasoning_content when the server exposes it
+  thinking: false          # request extended thinking (Qwen3 enable_thinking)
+  max_images_per_call: 6
+
+agent:
+  planner: auto            # auto | llm | hybrid | heuristic
+                           #   llm       = the local model chooses every tool (visible ReAct); best on GPU
+                           #   hybrid    = deterministic planner picks tools, the model does VLM verification,
+                           #               the critic and the closing report (3 model calls; right for CPU boxes)
+                           #   heuristic = no model calls (fixture / rehearsal)
+  max_steps: 12
+  critic_enabled: true
+  critic_min_risk: 0.35
+  ask_user_enabled: true
+  ask_timeout_s: 20
+  compute_budget: 100
+  costs:
+    inspect_frames: 4
+    run_vlm: 18
+    run_pose_analysis: 3
+    run_audio_analysis: 6
+    query_memory: 1
+    retrieve_policy: 1
+    critic: 12
+    translate: 2
+  show_reasoning: true
+
+policy:
+  # Harm asymmetry: missing a real emergency is much worse than a false alarm,
+  # but confronting an innocent person (police) is worse than a false medical check.
+  escalate_threshold: 0.70
+  ask_threshold: 0.40
+  info_gain_min: 0.08
+  action_cost:
+    ask_user: 0.05
+    continue_route: 0.0
+    call_911: 0.35
+    reroute_to_hospital: 0.25
+    call_police_share_location: 0.55
+    notify_parents: 0.20
+    notify_owner: 0.10
+    notify_security: 0.15
+    advise_user: 0.02
+  simulate_all_external_actions: true
+  allowlist: [ask_user, continue_route, call_911, reroute_to_hospital,
+              call_police_share_location, notify_parents, notify_owner,
+              notify_security, advise_user, log_only]
+
+memory:
+  path: runs/memory/angel_memory.sqlite
+  embedding_backend: hashing   # hashing | openai_compatible
+  embedding_model: nomic-embed-text
+  persist_episodes: true
+  top_k: 4
+  policy_docs: [examples/policies/site_policy.md, examples/policies/vehicle_policy.md,
+                examples/policies/childcare_policy.md]
+
+graph:
+  pagerank_enabled: true
+  pagerank_alpha: 0.85
+
+telemetry:
+  gpu_sampling_s: 0.5
+  cloud_price_per_1k_input_tokens_usd: 0.0025   # GPT-4o-class vision pricing assumption
+  cloud_price_per_1k_output_tokens_usd: 0.010
+  cloud_price_per_video_minute_usd: 0.12        # cloud video-understanding API assumption
+  local_power_w: 140                            # whole system power assumption
+  electricity_usd_per_kwh: 0.30
+
+edge_cloud:
+  mode: local_only          # local_only | hybrid
+  cloud_allowed_for: []     # e.g. [non_sensitive_enrichment, batch_reprocessing]
+  privacy_sensitive_kinds: [video, audio, image, transcript, location, identity]
+
+security:
+  audit_log: runs/audit.jsonl
+  max_upload_mb: 500
+  allowed_video_ext: [.mp4, .mov, .avi, .mkv, .webm, .m4v]
+  allowed_audio_ext: [.wav, .mp3, .m4a, .aac, .ogg, .flac, .opus]
+  prompt_injection_guard: true
+
+output:
+  directory: runs
